@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "WorkerManager.Core", "Worke
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorkerManager.Console", "WorkerManager.Console\WorkerManager.Console.csproj", "{DF6A0A32-93B8-4220-A573-5CDCC21CCCAF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WorkerManager.AspNetCore", "WorkerManager.AspNetCore\WorkerManager.AspNetCore.csproj", "{02A8C36E-B88D-46EB-A2FD-7E8852CD7891}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{DF6A0A32-93B8-4220-A573-5CDCC21CCCAF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DF6A0A32-93B8-4220-A573-5CDCC21CCCAF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DF6A0A32-93B8-4220-A573-5CDCC21CCCAF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{02A8C36E-B88D-46EB-A2FD-7E8852CD7891}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{02A8C36E-B88D-46EB-A2FD-7E8852CD7891}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{02A8C36E-B88D-46EB-A2FD-7E8852CD7891}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{02A8C36E-B88D-46EB-A2FD-7E8852CD7891}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
