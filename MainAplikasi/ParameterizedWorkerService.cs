@@ -18,7 +18,7 @@ namespace MainAplikasi
             _logger = logger;
         }
 
-        public async Task DoWorkAsync(object parameter, CancellationToken cancellationToken)
+        public async Task DoWorkAsync(object parameter, int millisecondsDelay, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Processing parameter of type: {Type}", parameter?.GetType().Name ?? "null");
 
@@ -38,7 +38,7 @@ namespace MainAplikasi
                     break;
             }
 
-            await Task.Delay(1000, cancellationToken);
+            await Task.Delay(millisecondsDelay, cancellationToken);
         }
     }
 }

@@ -17,10 +17,10 @@ namespace MainAplikasi
             _logger = logger;
         }
 
-        public async Task DoWorkAsync(string parameter, CancellationToken cancellationToken)
+        public async Task DoWorkAsync(string parameter, int millisecondsDelay, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Processing string parameter: {Parameter}", parameter);
-            await Task.Delay(2000, cancellationToken);
+            await Task.Delay(millisecondsDelay, cancellationToken);
         }
     }
 }

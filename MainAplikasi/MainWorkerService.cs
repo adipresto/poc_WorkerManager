@@ -12,10 +12,10 @@ namespace MainAplikasi
             _logger = logger;
         }
 
-        public async Task DoWorkAsync(CancellationToken cancellationToken)
+        public async Task DoWorkAsync(int millisecondsDelay, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Console worker doing work...");
-            await Task.Delay(3000, cancellationToken);
+            await Task.Delay(millisecondsDelay, cancellationToken);
         }
     }
 }
