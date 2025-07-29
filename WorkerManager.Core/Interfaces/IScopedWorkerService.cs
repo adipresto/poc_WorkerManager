@@ -4,17 +4,17 @@ namespace WorkerManager.Core.Interfaces
 {
     public interface IScopedWorkerService
     {
-        Task DoWorkAsync(CancellationToken cancellationToken);
+        Task DoWorkAsync(int millisecondsDelay, CancellationToken cancellationToken);
     }
 
     public interface IScopedWorkerService<T>
     {
-        Task DoWorkAsync(T parameter, CancellationToken cancellationToken);
+        Task DoWorkAsync(T parameter, int millisecondsDelay, CancellationToken cancellationToken);
     }
 
     public interface IScopedParameterizedWorkerService
     {
-        Task DoWorkAsync(object parameter, CancellationToken cancellationToken);
+        Task DoWorkAsync(object parameter, int millisecondsDelay, CancellationToken cancellationToken);
     }
 
     public interface IScopedContextWorkerService

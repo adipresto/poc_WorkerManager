@@ -5,10 +5,10 @@ namespace WorkerManager.Core.Interfaces
 {
     public interface IWorkManager
     {
-        Task AddWorkerAsync(int count = 1);
-        Task AddWorkerAsync<T>(T parameter, int count = 1);
-        Task AddWorkerAsync(object parameter, int count = 1);
-        Task AddWorkerAsync(WorkerContext context, int count = 1);
+        Task AddWorkerAsync(int count = 1, int millisecondsDelay = 5000);
+        Task AddWorkerAsync<T>(T parameter, int count = 1, int millisecondsDelay = 5000);
+        Task AddWorkerAsync(object parameter, int count = 1, int millisecondsDelay = 5000);
+        Task AddWorkerAsync(WorkerContext context, int count = 1, int millisecondsDelay = 5000);
         Task<bool> RemoveWorkerAsync(int count = 1);
         Task<int> StopAllWorkersAsync();
         int GetActiveWorkerCount();

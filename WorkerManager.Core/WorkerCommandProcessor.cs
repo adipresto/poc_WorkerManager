@@ -11,7 +11,7 @@ namespace WorkerManager.Core
         private readonly IWorkManager _workManager;
         private readonly ILogger<WorkerCommandProcessor> _logger;
         private readonly Dictionary<string, Func<Task<string>>> _commands;
-        private readonly Dictionary<string, Func<Task<string>>> _commandsForAddWorker;
+        private readonly Dictionary<string, Func<int?, Task<string>>> _commandsForAddWorker;
 
         private ProcessorStateEnums _processorStateEnums = ProcessorStateEnums.MAINMENU;
 
@@ -36,15 +36,15 @@ namespace WorkerManager.Core
                 ["HELP"] = ShowHelpAsync,
             };
 
-            _commandsForAddWorker = new Dictionary<string, Func<Task<string>>>(StringComparer.OrdinalIgnoreCase)
+            _commandsForAddWorker = new Dictionary<string, Func<int?, Task<string>>>(StringComparer.OrdinalIgnoreCase)
             {
                 ["0"] = AddWorkerAsync,
                 ["1"] = AddParameterizedStringWorkerAsync,
                 ["2"] = AddParameterizedIntWorkerAsync,
-                ["B"] = BackToMainMenu,
-                ["BACK"] = BackToMainMenu,
-                ["H"] = ShowHelpAsync,
-                ["HELP"] = ShowHelpAsync,
+                ["B"] = _ => BackToMainMenu(),
+                ["BACK"] = _ => BackToMainMenu(),
+                ["H"] = _ => ShowHelpAsync(),
+                ["HELP"] = _ => ShowHelpAsync(),
             };
         }
 
@@ -55,7 +55,24 @@ namespace WorkerManager.Core
 
             try
             {
-                var cmd = command.Trim().ToUpper();
+                var parts = command.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var cmd = parts[0].ToUpper();
+
+                // Parse flag -delay=xxx
+                int? delay = null;
+                foreach (var p in parts.Skip(1))
+                {
+                    if (p.StartsWith("--delay=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (int.TryParse(p.Substring(8), out var d))
+                            delay = d;
+                    }
+                    if (p.StartsWith("-d=", StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (int.TryParse(p.Substring(3), out var d))
+                            delay = d;
+                    }
+                }
 
                 switch (_processorStateEnums)
                 {
@@ -63,7 +80,7 @@ namespace WorkerManager.Core
                         if (_commandsForAddWorker.TryGetValue(cmd, out var commandAddFunc))
                         {
                             _processorStateEnums = ProcessorStateEnums.MAINMENU;
-                            return await commandAddFunc();
+                            return await commandAddFunc(delay);
                         }
                         break;
                     default:
@@ -74,7 +91,6 @@ namespace WorkerManager.Core
                         break;
                 }
 
-
                 return $"Unknown command: '{command}'. Type 'H' for available commands.";
             }
             catch (Exception ex)
@@ -83,6 +99,7 @@ namespace WorkerManager.Core
                 return $"Error processing command: {ex.Message}";
             }
         }
+
 
         public Dictionary<string, string> GetAvailableCommands()
         {
@@ -103,28 +120,38 @@ namespace WorkerManager.Core
                 ["0"] = "Add a new default worker",
                 ["1"] = "Add a new string worker",
                 ["2"] = "Add a new numerical worker",
+                ["-d/--delay="] = "Specify delay per Xms",
                 ["B/BACK"] = "Return to Main Menu",
                 ["H/HELP"] = "Show this help"
             };
         }
 
-        private async Task<string> AddWorkerAsync()
+        private Task<string> AddWorkerAsync() => AddWorkerAsync(null);
+        private async Task<string> AddWorkerAsync(int? delayOverride = null)
         {
-            await _workManager.AddWorkerAsync(1);
+            int delay = delayOverride ?? 1000;
+
+            await _workManager.AddWorkerAsync(1, delay);
             var activeCount = _workManager.GetActiveWorkerCount();
             return $"Added 1 worker. Active workers: {activeCount}";
         }
 
-        private async Task<string> AddParameterizedStringWorkerAsync()
+        private Task<string> AddParameterizedStringWorkerAsync() => AddParameterizedStringWorkerAsync(null);
+        private async Task<string> AddParameterizedStringWorkerAsync(int? delayOverride = null)
         {
-            await _workManager.AddWorkerAsync("Ini dan itu", 1);
+            int delay = delayOverride ?? 1000;
+
+            await _workManager.AddWorkerAsync("Ini dan itu", 1, delay);
             var activeCount = _workManager.GetActiveWorkerCount();
             return $"Added 1 worker. Active workers: {activeCount}";
         }
 
-        private async Task<string> AddParameterizedIntWorkerAsync()
+        private Task<string> AddParameterizedIntWorkerAsync() => AddParameterizedIntWorkerAsync(null);
+        private async Task<string> AddParameterizedIntWorkerAsync(int? delayOverride = null)
         {
-            await _workManager.AddWorkerAsync(100, 1);
+            int delay = delayOverride ?? 1000;
+
+            await _workManager.AddWorkerAsync(100, 1, delay);
             var activeCount = _workManager.GetActiveWorkerCount();
             return $"Added 1 worker. Active workers: {activeCount}";
         }

@@ -71,25 +71,25 @@ namespace WorkerManager.Core.Services
             }
         }
 
-        public async Task AddWorkerAsync(int count = 1)
+        public async Task AddWorkerAsync(int count = 1, int millisecondsDelay = 1000)
         {
-            await AddWorkerAsync((object)null, count);
+            await AddWorkerAsync((object)null, count, millisecondsDelay);
         }
 
-        public async Task AddWorkerAsync<T>(T parameter, int count = 1)
+        public async Task AddWorkerAsync<T>(T parameter, int count = 1, int millisecondsDelay = 5000)
         {
-            await AddWorkerAsync((object)parameter, count);
+            await AddWorkerAsync((object)parameter, count, millisecondsDelay);
         }
 
-        public async Task AddWorkerAsync(object parameter, int count = 1)
+        public async Task AddWorkerAsync(object parameter, int count = 1, int millisecondsDelay = 5000)
         {
             await AddWorkerAsync(parameter != null ? new WorkerContext
             {
                 Parameters = { ["main"] = parameter }
-            } : null, count);
+            } : null, count, millisecondsDelay);
         }
 
-        public async Task AddWorkerAsync(WorkerContext context, int count = 1)
+        public async Task AddWorkerAsync(WorkerContext context, int count = 1, int millisecondsDelay = 5000)
         {
             await _workerManagementSemaphore.WaitAsync();
             try
@@ -110,6 +110,7 @@ namespace WorkerManager.Core.Services
                     var workerContext = context ?? new WorkerContext();
                     workerContext.WorkerId = workerId;
                     workerContext.StartTime = DateTime.UtcNow;
+                    workerContext.Parameters.Add("msDelay", millisecondsDelay);
 
                     var workerInfo = new WorkerInfo
                     {
@@ -279,7 +280,7 @@ namespace WorkerManager.Core.Services
                     var parameterizedWorker = scope.ServiceProvider.GetService<IScopedParameterizedWorkerService>();
                     if (parameterizedWorker != null && context.Parameters.ContainsKey("main"))
                     {
-                        await parameterizedWorker.DoWorkAsync(context.Parameters["main"], stoppingToken);
+                        await parameterizedWorker.DoWorkAsync(context.Parameters["main"], Convert.ToInt32(context.Parameters["msDelay"]), stoppingToken);
                         continue;
                     }
 
@@ -303,7 +304,7 @@ namespace WorkerManager.Core.Services
                     var basicWorker = scope.ServiceProvider.GetService<IScopedWorkerService>();
                     if (basicWorker != null)
                     {
-                        await basicWorker.DoWorkAsync(stoppingToken);
+                        await basicWorker.DoWorkAsync(Convert.ToInt32(context.Parameters["msDelay"]), stoppingToken);
                     }
                     else
                     {
