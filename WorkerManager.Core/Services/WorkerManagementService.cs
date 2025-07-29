@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
+using WorkerManager.Core.Contexts;
 
 namespace WorkerManager.Core.Services
 {
@@ -16,10 +17,13 @@ namespace WorkerManager.Core.Services
         public CancellationTokenSource CancellationTokenSource { get; set; }
         public Task WorkerTask { get; set; }
         public string Status { get; set; } = "Running";
+        public object Parameter { get; set; }
+        public Type ParameterType { get; set; }
+        public WorkerContext Context { get; set; }
     }
 
     // Core Worker Management Service
-    public class WorkerManagementService : BackgroundService, IWorkManager, IDisposable
+    public class WorkerManagementService : BackgroundService, IWorkManager
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<WorkerManagementService> _logger;
@@ -69,6 +73,24 @@ namespace WorkerManager.Core.Services
 
         public async Task AddWorkerAsync(int count = 1)
         {
+            await AddWorkerAsync((object)null, count);
+        }
+
+        public async Task AddWorkerAsync<T>(T parameter, int count = 1)
+        {
+            await AddWorkerAsync((object)parameter, count);
+        }
+
+        public async Task AddWorkerAsync(object parameter, int count = 1)
+        {
+            await AddWorkerAsync(parameter != null ? new WorkerContext
+            {
+                Parameters = { ["main"] = parameter }
+            } : null, count);
+        }
+
+        public async Task AddWorkerAsync(WorkerContext context, int count = 1)
+        {
             await _workerManagementSemaphore.WaitAsync();
             try
             {
@@ -84,18 +106,26 @@ namespace WorkerManager.Core.Services
                     var workerId = Interlocked.Increment(ref _nextWorkerId);
                     var cts = new CancellationTokenSource();
 
+                    // Prepare worker context
+                    var workerContext = context ?? new WorkerContext();
+                    workerContext.WorkerId = workerId;
+                    workerContext.StartTime = DateTime.UtcNow;
+
                     var workerInfo = new WorkerInfo
                     {
                         Id = workerId,
                         StartTime = DateTime.UtcNow,
-                        CancellationTokenSource = cts
+                        CancellationTokenSource = cts,
+                        Context = workerContext,
+                        Parameter = workerContext.Parameters.ContainsKey("main") ? workerContext.Parameters["main"] : null,
+                        ParameterType = workerContext.Parameters.ContainsKey("main") ? workerContext.Parameters["main"]?.GetType() : null
                     };
 
                     var workerTask = Task.Run(async () =>
                     {
                         try
                         {
-                            await DoWorkerWorkAsync(workerId, cts.Token);
+                            await DoWorkerWorkAsync(workerId, workerContext, cts.Token);
                         }
                         catch (OperationCanceledException)
                         {
@@ -123,8 +153,8 @@ namespace WorkerManager.Core.Services
 
                     if (_workers.TryAdd(workerId, workerInfo))
                     {
-                        _logger.LogInformation("Added worker {WorkerId}. Total active workers: {Count}",
-                            workerId, GetActiveWorkerCount());
+                        _logger.LogInformation("Added worker {WorkerId} with parameter type {ParameterType}. Total active workers: {Count}",
+                            workerId, workerInfo.ParameterType?.Name ?? "None", GetActiveWorkerCount());
 
                         WorkerAdded?.Invoke(this, new WorkerEventArgs
                         {
@@ -226,20 +256,54 @@ namespace WorkerManager.Core.Services
                 .ToList();
         }
 
-        private async Task DoWorkerWorkAsync(int workerId, CancellationToken stoppingToken)
+        private async Task DoWorkerWorkAsync(int workerId, WorkerContext context, CancellationToken stoppingToken)
         {
-            _logger.LogDebug("Worker {WorkerId} started", workerId);
+            _logger.LogDebug("Worker {WorkerId} started with parameter type {ParameterType}",
+                workerId, context.Parameters.ContainsKey("main") ? context.Parameters["main"]?.GetType().Name : "None");
 
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
                 {
                     using var scope = _serviceProvider.CreateScope();
-                    var workerService = scope.ServiceProvider.GetService<IScopedWorkerService>();
 
-                    if (workerService != null)
+                    // Try different worker service types in order of preference
+                    var contextWorker = scope.ServiceProvider.GetService<IScopedContextWorkerService>();
+                    if (contextWorker != null)
                     {
-                        await workerService.DoWorkAsync(stoppingToken);
+                        await contextWorker.DoWorkAsync(context, stoppingToken);
+                        continue;
+                    }
+
+                    // Try parameterized worker
+                    var parameterizedWorker = scope.ServiceProvider.GetService<IScopedParameterizedWorkerService>();
+                    if (parameterizedWorker != null && context.Parameters.ContainsKey("main"))
+                    {
+                        await parameterizedWorker.DoWorkAsync(context.Parameters["main"], stoppingToken);
+                        continue;
+                    }
+
+                    // Try generic typed worker using reflection (if parameter exists)
+                    if (context.Parameters.ContainsKey("main") && context.Parameters["main"] != null)
+                    {
+                        var parameterType = context.Parameters["main"].GetType();
+                        var genericServiceType = typeof(IScopedWorkerService<>).MakeGenericType(parameterType);
+                        var genericWorker = scope.ServiceProvider.GetService(genericServiceType);
+
+                        if (genericWorker != null)
+                        {
+                            var method = genericServiceType.GetMethod("DoWorkAsync");
+                            var task = (Task)method.Invoke(genericWorker, new[] { context.Parameters["main"], stoppingToken });
+                            await task;
+                            continue;
+                        }
+                    }
+
+                    // Fallback to basic worker service
+                    var basicWorker = scope.ServiceProvider.GetService<IScopedWorkerService>();
+                    if (basicWorker != null)
+                    {
+                        await basicWorker.DoWorkAsync(stoppingToken);
                     }
                     else
                     {

@@ -32,5 +32,32 @@ namespace WorkerManager.Core
             services.AddScoped<IScopedWorkerService, TWorkerService>();
             return services.AddWorkerManagement(configureOptions);
         }
+
+        public static IServiceCollection AddWorkerManagement<TWorkerService, TParameter>(
+            this IServiceCollection services,
+            Action<WorkerManagementOptions> configureOptions = null)
+            where TWorkerService : class, IScopedWorkerService<TParameter>
+        {
+            services.AddScoped<IScopedWorkerService<TParameter>, TWorkerService>();
+            return services.AddWorkerManagement(configureOptions);
+        }
+
+        public static IServiceCollection AddParameterizedWorkerManagement<TWorkerService>(
+            this IServiceCollection services,
+            Action<WorkerManagementOptions> configureOptions = null)
+            where TWorkerService : class, IScopedParameterizedWorkerService
+        {
+            services.AddScoped<IScopedParameterizedWorkerService, TWorkerService>();
+            return services.AddWorkerManagement(configureOptions);
+        }
+
+        public static IServiceCollection AddContextWorkerManagement<TWorkerService>(
+            this IServiceCollection services,
+            Action<WorkerManagementOptions> configureOptions = null)
+            where TWorkerService : class, IScopedContextWorkerService
+        {
+            services.AddScoped<IScopedContextWorkerService, TWorkerService>();
+            return services.AddWorkerManagement(configureOptions);
+        }
     }
 }
