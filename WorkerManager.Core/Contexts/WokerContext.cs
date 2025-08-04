@@ -10,7 +10,7 @@ namespace WorkerManager.Core.Contexts
     public class WorkerContext
     {
         public Dictionary<string, object> Parameters { get; set; } = new();
-        public int WorkerId { get; set; }
+        public Guid WorkerId { get; set; }
         public DateTime StartTime { get; set; }
 
         public T GetParameter<T>(string key, T defaultValue = default)

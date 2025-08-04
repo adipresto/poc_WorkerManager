@@ -12,7 +12,7 @@ namespace WorkerManager.Core.Services
     // Internal Worker Info
     internal class WorkerInfo
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         public DateTime StartTime { get; set; }
         public CancellationTokenSource CancellationTokenSource { get; set; }
         public Task WorkerTask { get; set; }
@@ -28,7 +28,7 @@ namespace WorkerManager.Core.Services
         private readonly IServiceProvider _serviceProvider;
         private readonly ILogger<WorkerManagementService> _logger;
         private readonly WorkerManagementOptions _options;
-        private readonly ConcurrentDictionary<int, WorkerInfo> _workers;
+        private readonly ConcurrentDictionary<Guid, WorkerInfo> _workers;
         private readonly SemaphoreSlim _workerManagementSemaphore = new(1, 1);
         private int _nextWorkerId = 0;
 
@@ -44,7 +44,7 @@ namespace WorkerManager.Core.Services
             _serviceProvider = serviceProvider;
             _logger = logger;
             _options = options ?? new WorkerManagementOptions();
-            _workers = new ConcurrentDictionary<int, WorkerInfo>();
+            _workers = new ConcurrentDictionary<Guid, WorkerInfo>();
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -71,26 +71,27 @@ namespace WorkerManager.Core.Services
             }
         }
 
-        public async Task AddWorkerAsync(int count = 1, int millisecondsDelay = 1000)
+        public async Task<Guid> AddWorkerAsync(int count = 1, int millisecondsDelay = 1000)
         {
-            await AddWorkerAsync((object)null, count, millisecondsDelay);
+            return await AddWorkerAsync((object)null, count, millisecondsDelay);
         }
 
-        public async Task AddWorkerAsync<T>(T parameter, int count = 1, int millisecondsDelay = 5000)
+        public async Task<Guid> AddWorkerAsync<T>(T parameter, int count = 1, int millisecondsDelay = 5000)
         {
-            await AddWorkerAsync((object)parameter, count, millisecondsDelay);
+            return await AddWorkerAsync((object)parameter, count, millisecondsDelay);
         }
 
-        public async Task AddWorkerAsync(object parameter, int count = 1, int millisecondsDelay = 5000)
+        public async Task<Guid> AddWorkerAsync(object parameter, int count = 1, int millisecondsDelay = 5000)
         {
-            await AddWorkerAsync(parameter != null ? new WorkerContext
+            return await AddWorkerAsync(parameter != null ? new WorkerContext
             {
                 Parameters = { ["main"] = parameter }
             } : null, count, millisecondsDelay);
         }
 
-        public async Task AddWorkerAsync(WorkerContext context, int count = 1, int millisecondsDelay = 5000)
+        public async Task<Guid> AddWorkerAsync(WorkerContext context, int count = 1, int millisecondsDelay = 5000)
         {
+            var workerId = Guid.NewGuid();
             await _workerManagementSemaphore.WaitAsync();
             try
             {
@@ -103,7 +104,8 @@ namespace WorkerManager.Core.Services
                         break;
                     }
 
-                    var workerId = Interlocked.Increment(ref _nextWorkerId);
+                    var incremented = Interlocked.Increment(ref _nextWorkerId);
+                    
                     var cts = new CancellationTokenSource();
 
                     // Prepare worker context
@@ -164,6 +166,7 @@ namespace WorkerManager.Core.Services
                         });
                     }
                 }
+                return workerId;
             }
             finally
             {
@@ -238,6 +241,31 @@ namespace WorkerManager.Core.Services
             }
         }
 
+        public async Task<int> StopWorkersAsync(Guid workerId)
+        {
+            await _workerManagementSemaphore.WaitAsync();
+            try
+            {
+                var stoppedCount = 0;
+                var workersToStop = _workers.Values.Where(w => w.Status == "Running" || w.Id == workerId).ToList();
+
+                foreach (var worker in workersToStop)
+                {
+                    worker.Status = "Stopping";
+                    worker.CancellationTokenSource.Cancel();
+                    stoppedCount++;
+                }
+
+                _workers.Clear();
+                _logger.LogInformation("Stopped all {Count} workers", stoppedCount);
+                return stoppedCount;
+            }
+            finally
+            {
+                _workerManagementSemaphore.Release();
+            }
+        }
+
         public int GetActiveWorkerCount()
         {
             return _workers.Count(w => w.Value.Status == "Running");
@@ -257,7 +285,7 @@ namespace WorkerManager.Core.Services
                 .ToList();
         }
 
-        private async Task DoWorkerWorkAsync(int workerId, WorkerContext context, CancellationToken stoppingToken)
+        private async Task DoWorkerWorkAsync(Guid workerId, WorkerContext context, CancellationToken stoppingToken)
         {
             _logger.LogDebug("Worker {WorkerId} started with parameter type {ParameterType}",
                 workerId, context.Parameters.ContainsKey("main") ? context.Parameters["main"]?.GetType().Name : "None");

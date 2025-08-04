@@ -2,7 +2,7 @@
 {
     public class WorkerDetail
     {
-        public int Id { get; set; }
+        public Guid Id { get; set; }
         public DateTime StartTime { get; set; }
         public string Status { get; set; } = "Running";
         public TimeSpan RunningDuration => DateTime.UtcNow - StartTime;
