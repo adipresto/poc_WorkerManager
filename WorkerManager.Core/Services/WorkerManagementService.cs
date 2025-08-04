@@ -246,18 +246,13 @@ namespace WorkerManager.Core.Services
             await _workerManagementSemaphore.WaitAsync();
             try
             {
-                var stoppedCount = 0;
-                var workersToStop = _workers.Values.Where(w => w.Status == "Running" && w.Id == workerId).ToList();
+                var workerToStop = _workers.Values.Where(w => w.Status == "Running" && w.Id == workerId).Single();
 
-                foreach (var worker in workersToStop)
-                {
-                    worker.Status = "Stopping";
-                    worker.CancellationTokenSource.Cancel();
-                    stoppedCount++;
-                }
+                workerToStop.Status = "Stopping";
+                workerToStop.CancellationTokenSource.Cancel();
 
                 _workers.Remove(workerId, out var _);
-                return stoppedCount;
+                return 1;
             }
             finally
             {
