@@ -247,7 +247,7 @@ namespace WorkerManager.Core.Services
             try
             {
                 var stoppedCount = 0;
-                var workersToStop = _workers.Values.Where(w => w.Status == "Running" || w.Id == workerId).ToList();
+                var workersToStop = _workers.Values.Where(w => w.Status == "Running" && w.Id == workerId).ToList();
 
                 foreach (var worker in workersToStop)
                 {
@@ -256,8 +256,7 @@ namespace WorkerManager.Core.Services
                     stoppedCount++;
                 }
 
-                _workers.Clear();
-                _logger.LogInformation("Stopped all {Count} workers", stoppedCount);
+                _workers.Remove(workerId, out var _);
                 return stoppedCount;
             }
             finally
